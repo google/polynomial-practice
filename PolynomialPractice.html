@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<!--
+    Copyright 2023 Google LLC
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        https://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+  -->
+
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <title>Polynomial Practice</title>
+  
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="googlebot" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+  <script type="text/javascript" src="./dummy.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="./result-light.css">
+
+
+  <style id="compiled-css" type="text/css">
+    body {
+  background: #fff;
+  padding-bottom: 20em;  /* Work around smart phone keyboard. */
+}
+.problem {
+  text-align: center;
+}
+
+    /* EOS */
+  </style>
+
+  <script id="insert"></script>
+
+</head>
+<body>
+    
+
+  
+    
+    <title>Polynomial practice</title>
+  
+  
+    <ul>
+      <li>Enter the product in <a href="https://www.cuemath.com/algebra/standard-form-polynomial/">standard form</a>.</li>
+      <li>Use <code>a</code> for ax⁰; use <code>x</code> for x¹; use <code>xⁿ</code> for 1xⁿ.</li>
+      <li>Numbers typed after the variable are formatted as exponents.</li>
+      <li><code>m</code> and <code>-</code> are formatted as minus sign.</li>
+      <li><code>p</code> and <code>+</code> are formatted as plus sign.</li>
+      <li>Press <code>Enter</code>, <code>return</code>, <code>Go</code>, or <code>Next</code> when done.</li>
+      <li>Enter <code>?</code> to see the answer.</li>
+      <li>Random seed: (1–4294967295) <input id="test_id"></li>
+    </ul>
+    <div id="prototype" style="display:none;">
+      <p class="problem">
+        <span class="question">question</span> =
+        <input class="answer" value="answer" autocapitalize="off">
+        <span class="feedback">feedback</span>
+      </p>
+    </div>
+    <form id="problems_form">
+      <div id="problems"><p class="problem">
+        <span class="question">(x² – 8)(–x² – 1)</span> =
+        <input class="answer" value="answer" autocapitalize="off">
+        <span class="feedback">…</span>
+      </p></div>
+      <input type="submit" value="Thanks" style="display:none;">
+    </form>
+  
+
+
+    <script type="text/javascript">//<![CDATA[
+
+
+const random = (()=>{
+	const f = () => {
+  	// https://en.wikipedia.org/wiki/Xorshift
+  	let x = f.state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    f.state = x
+    return (x + 0x80000000) / 0x100000000;
+  }
+  f.state = 10000;
+  return f;
+})();
+
+function unsuperscript(exponent) {
+	let ret = '';
+  for (let i = 0; i < exponent.length; ++i) {
+    ret += '01234567890123456789'['0123456789⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(exponent[i])];
+  }
+  return ret;
+}
+
+function superscript(exponent) {
+	exponent = String(exponent);
+	let ret = '';
+  for (let i = 0; i < exponent.length; ++i) {
+    ret += '⁰¹²³⁴⁵⁶⁷⁸⁹⁰¹²³⁴⁵⁶⁷⁸⁹'['0123456789⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(exponent[i])];
+  }
+  return ret;
+}
+
+const MINUS = '–';
+const PLUS = '+';
+const VARIABLE = 'x';
+const SPACE = ' ';
+
+function canonicalize(prefix, fragment, state) {
+	let ret = prefix;
+  for (const c of fragment) {
+    const ctype = ('00000000000000000000––––+++xx '[
+                   '0123456789⁰¹²³⁴⁵⁶⁷⁸⁹-–mM+pPxX '.indexOf(c)]);
+    if (state === 'begin' && ctype === MINUS) {
+      ret += MINUS;
+      state = 'begin_term';
+    } else if (ctype === undefined) {
+    	// Swallow unexpected characters.
+    } else if (ctype === SPACE) {
+      if (state === 'operator') {
+        state = 'begin_term';
+        ret += SPACE;
+      } else {
+        state = 'end_term';
+      }
+    } else if (ctype === MINUS) {
+      ret += ` ${MINUS}`;
+      state = 'operator';
+    } else if (ctype === PLUS) {
+      ret += ` ${PLUS}`;
+      state = 'operator';
+    } else {
+      if (state === 'operator') {
+        ret += SPACE;
+      }
+      if (ctype === VARIABLE) {
+        ret += VARIABLE;
+        state = 'exponent';
+      } else if (state === 'exponent') {
+        ret += superscript(c);
+      } else {
+        ret += unsuperscript(c);
+        state = 'coefficient';
+      }
+    }
+  }
+  return [ret, state];
+}
+
+function handle_answer_input(event) {
+  const answer_elt = this;
+  const problem_elt = answer_elt.parentElement;
+  if (answer_elt.value.includes('?')) {
+  	give_feedback(problem_elt, polynomial_to_string(get_right_answer(problem_elt)));
+    return;
+  }
+  const old_caret = answer_elt.selectionEnd;
+  const before = answer_elt.value.substr(0, old_caret);
+  const after = answer_elt.value.substr(old_caret);
+  let [value, state] = canonicalize('', before, 'begin');
+  const new_caret = value.length;
+  [value] = canonicalize(value, after, state);
+  answer_elt.value = value;
+  answer_elt.setSelectionRange(new_caret, new_caret);
+  give_feedback(problem_elt, '…');
+}
+
+function parse_polynomial(string) {
+  const [canonical, state] = canonicalize('', string, 'begin');
+  if (['begin', 'begin_term', 'operator'].includes(state)) {
+  	return [];
+  }
+  let pieces = canonical.split(/( [-–+] )/);
+  let poly = [];
+  let standard = true;
+  let sign = 1;
+  let last_exponent;
+  while (pieces.length > 0) {
+  	const piece = pieces.shift();
+    if (piece === '') {
+    	return [];
+    }
+    const match = /^([-–]?)([0-9]*)(x([⁰¹²³⁴⁵⁶⁷⁸⁹]*))?/.exec(piece);
+    if (!match) {
+      return [];
+    }
+    if (match[1]) {
+    	sign = -1;
+    }
+    if (['⁰', '¹'].includes(match[4])) {
+    	standard = false;
+    }
+    if (match[3] && ['1', '0'].includes(match[2])) {
+    	standard = false;
+    }
+    const coefficient = Number(match[2] || 1);
+    const exponent = (match[3] ? Number(unsuperscript(match[4]) || 1) : 0);
+    if (last_exponent !== undefined && exponent >= last_exponent) {
+    	standard = false;
+    }
+    last_exponent = exponent;
+    poly[exponent] = (poly[exponent] || 0) + sign * coefficient;
+    if (pieces.length > 0 && '-–'.includes(pieces.shift()[1])) {
+      sign = -1;
+    } else {
+      sign = 1;
+    }
+  }
+  return [poly, standard, canonical];
+}
+
+function multiply_polynomials(left, right) {
+	const ret = [];
+  for (let i = 0; i < left.length; ++i) {
+  	for (let j = 0; j < right.length; ++j) {
+    	ret[i+j] = (ret[i+j] || 0) + (left[i] || 0) * (right[j] || 0);
+    }
+  }
+  return ret;
+}
+
+function parse_polynomial_expression(string) {
+	let ret = [1];
+  for (const match of string.matchAll(/\((.+?)\)|([-–]?[^-()+–]+)/g)) {
+  	const [poly] = parse_polynomial(match[1] || match[2]);
+    if (!poly) {
+    	return;
+    }
+    ret = multiply_polynomials(ret, poly);
+  }
+  return ret;
+}
+
+function polynomials_equal(left, right) {
+	const len = left.length;
+  if (len === right.length) {
+  	for (let i = 0; i < len; ++i) {
+    	if ((left[i] || 0) !== (right[i] || 0)) {
+      	return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+function polynomial_to_string(poly) {
+	if (poly.length === 0) {
+	  return '0';
+  }
+  const pieces = [];
+  for (let i = poly.length - 1; i >= 0; --i) {
+  	const coefficient = poly[i] || 0;
+  	if (coefficient !== 0) {
+    	let piece = '';
+      if (pieces.length === 0) {
+      	if (coefficient < 0) {
+        	piece += '–';
+        }
+      } else if (coefficient > 0) {
+      	piece += ' + ';
+      } else {
+      	piece += ' – ';
+      }
+      if (Math.abs(coefficient) !== 1 || i === 0) {
+      	piece += Math.abs(coefficient);
+      }
+      if (i > 0) {
+      	piece += 'x';
+        if (i > 1) {
+        	piece += superscript(i);
+        }
+      }
+      pieces.push(piece);
+    }
+  }
+  return pieces.join('');
+}
+
+function give_feedback(problem_elt, feedback, hint) {
+	const feedback_elt = problem_elt.querySelector('.feedback');
+  if (hint) {
+  	feedback_elt.setAttribute('title', hint);
+  } else {
+  	feedback_elt.removeAttribute('title');
+  }
+  feedback_elt.textContent = feedback;
+}
+
+function build_feedback(expected, got, got_standard_form) {
+  if (expected) {
+    if (got) {
+      if (polynomials_equal(got, expected)) {
+        if (got_standard_form) {
+          return ['✅'];
+        }
+        return ['⚠', 'standard form: ' + polynomial_to_string(expected)];
+      }
+      return ['❌', 'enter ? for the answer'];
+    }
+    return ['…'];
+  }
+  return ['💀', 'oops, internal error'];
+}
+
+function get_right_answer(problem_elt) {
+	return parse_polynomial_expression(problem_elt.querySelector('.question').innerText);
+}
+
+function random_nonzero_coefficient() {
+	const sign = 2 * Math.floor(2 * random()) - 1;
+  const magnitude = Math.floor(Math.exp(2.4 * random()));
+  return sign * magnitude;
+}
+
+function random_polynomial(allow_constant) {
+  r = random();
+	if (r < 0.6) {
+  	return [random_nonzero_coefficient(), random_nonzero_coefficient()];
+  }
+  if (r < 0.7) {
+  	return [random_nonzero_coefficient(), 0, random_nonzero_coefficient()];
+  }
+  if (r < 0.8) {
+    return [0, random_nonzero_coefficient(), random_nonzero_coefficient()];
+  }
+  if (r < 0.9 || !allow_constant) {
+  	return [0, random_nonzero_coefficient()];
+  }
+  return [random_nonzero_coefficient()];
+}
+
+function count_nonzero_terms(poly) {
+	return poly.reduce((count, val) => count + (val ? 1 : 0), 0);
+}
+
+function new_question() {
+	const p1 = random_polynomial(true);
+  const p2 = random_polynomial();
+  let s1 = polynomial_to_string(p1);
+  if (count_nonzero_terms(p1) > 1) {
+  	s1 = '(' + s1 + ')';
+  }
+  const s2 = '(' + polynomial_to_string(p2) + ')';
+	return s1 + s2;
+}
+
+function add_problem() {
+	const problem_elt = document.querySelector('#prototype .problem').cloneNode(true);
+  problem_elt.querySelector('.question').textContent = new_question();
+  const answer_elt = problem_elt.querySelector('.answer');
+  answer_elt.value = '';
+  answer_elt.addEventListener('input', handle_answer_input);
+  answer_elt.addEventListener('blur', handle_answer_blur);
+  give_feedback(problem_elt, '…');
+  document.getElementById('problems').appendChild(problem_elt);
+  problem_elt.querySelector('.answer').focus();
+}
+
+function check_answer(answer_elt) {
+  const problem_elt = answer_elt.parentElement;
+  const [got, got_standard_form, canonical] = parse_polynomial(answer_elt.value);
+  answer_elt.value = canonical || answer_elt.value;
+  const expected = get_right_answer(problem_elt);
+  give_feedback(problem_elt, ...build_feedback(expected, got, got_standard_form));
+  return got_standard_form && polynomials_equal(got, expected);
+}
+
+function handle_answer_blur() {
+	const answer_elt = this;
+  check_answer(answer_elt);
+}
+
+function handle_form_submit(event) {
+  event.preventDefault();
+	const focus = document.activeElement;
+  if (focus && focus.matches('#problems .answer')) {
+  	const answer_elt = focus;
+    const problem_elt = answer_elt.parentElement;
+    if (check_answer(answer_elt) && !problem_elt.nextElementSibling) {
+  	add_problem();
+    }
+  }
+}
+
+function get_random_seed() {
+	const test_id_elt = document.getElementById('test_id');
+  const random_seed = (Number(test_id_elt.value) & 0xffffffff) || 1000 + Math.floor(1000 * Math.random());
+  test_id_elt.value = random_seed + (random_seed < 0 ? 0x100000000 : 0);
+	return random_seed;
+}
+
+function handle_test_id_change() {
+	random.state = get_random_seed();
+  document.getElementById('problems').innerHTML = '';
+  add_problem();
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+	document.getElementById('test_id').addEventListener('change', handle_test_id_change);
+  handle_test_id_change();
+  document.getElementById('problems_form').addEventListener('submit', handle_form_submit);
+})
+
+
+
+  //]]></script>
+
+</body></html>
